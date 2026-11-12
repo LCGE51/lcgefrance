@@ -305,8 +305,8 @@ footer{background:#0d1838;color:#dfe7fa;padding-block:3.5rem 2rem;margin-top:4re
     </div>
     <form class="form" id="f" novalidate>
       <div class="drops">
-        <label class="drop" id="dCarte" for="fCarte"><span class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M13 10h6M13 14h4"/></svg></span><b>Ma carte de visite</b><small id="nCarte">Photo · remplit vos coordonnées</small><input id="fCarte" type="file" accept="image/*"></label>
-        <label class="drop" id="dFact" for="fFact"><span class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5M9 13h7M9 17h5"/><path d="M11 6.5l-1.5 3h2l-1.5 3" stroke-linejoin="round"/></svg></span><b>Ma facture d'énergie</b><small id="nFact">Photo ou PDF · élec et/ou gaz</small><input id="fFact" type="file" accept="image/*,application/pdf" multiple></label>
+        <label class="drop" id="dCarte" for="fCarte"><span class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M13 10h6M13 14h4"/></svg></span><b>Ma carte de visite</b><small id="nCarte">Photo · remplit vos coordonnées</small><input id="fCarte" type="file" accept="image/*,application/pdf,.heic,.heif,.html,.htm,.txt,.eml,.doc,.docx,.odt"></label>
+        <label class="drop" id="dFact" for="fFact"><span class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5M9 13h7M9 17h5"/><path d="M11 6.5l-1.5 3h2l-1.5 3" stroke-linejoin="round"/></svg></span><b>Ma facture d'énergie</b><small id="nFact">Photo ou PDF · élec et/ou gaz</small><input id="fFact" type="file" accept="image/*,application/pdf,.heic,.heif,.html,.htm,.txt,.eml,.doc,.docx,.odt" multiple></label>
       </div>
       <div class="ai" id="ai"><i>⚡</i><span id="aiTxt">Rien à remplir : déposez vos deux photos et appuyez sur Envoyer. Nous lisons tout pour vous.</span></div>
       <button class="btn btn-gold" type="submit">Envoyer et recevoir mon étude</button>
@@ -513,14 +513,16 @@ footer{background:#0d1838;color:#dfe7fa;padding-block:3.5rem 2rem;margin-top:4re
   });
   var POST_URL='https://script.google.com/macros/s/AKfycbyHWLy87qqAxu-FxEkjQEgPpOZX96_O5sOjefMn4nQ3qQrWHMi_ZpwSYUcHdt4bc_DPpQ/exec';
   function lireFichier(file){return new Promise(function(ok,ko){
-    if(file.type==='application/pdf'){if(file.size>5e6)return ko(new Error('PDF trop lourd (5 Mo max)'));var r=new FileReader();r.onload=function(){ok({name:file.name,type:'application/pdf',data:String(r.result).split(',')[1]})};r.onerror=ko;r.readAsDataURL(file);return;}
-    var img=new Image(),u=URL.createObjectURL(file);img.onload=function(){var k=Math.min(1,1800/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);ok({name:file.name.replace(/\.\w+$/,'')+'.jpg',type:'image/jpeg',data:c.toDataURL('image/jpeg',0.85).split(',')[1]})};img.onerror=function(){ko(new Error('Image illisible'))};img.src=u;});}
+    function brut(){if(file.size>15e6)return ko(new Error('fichier trop lourd (15 Mo max)'));var r=new FileReader();r.onload=function(){ok({name:file.name,type:file.type||'application/octet-stream',data:String(r.result).split(',')[1]})};r.onerror=ko;r.readAsDataURL(file);}
+    if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type))return brut();
+    if(false){var r=new FileReader();r.onload=function(){ok({name:file.name,type:'application/pdf',data:String(r.result).split(',')[1]})};r.onerror=ko;r.readAsDataURL(file);return;}
+    var img=new Image(),u=URL.createObjectURL(file);img.onload=function(){var k=Math.min(1,1800/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);ok({name:file.name.replace(/\.\w+$/,'')+'.jpg',type:'image/jpeg',data:c.toDataURL('image/jpeg',0.85).split(',')[1]})};img.onerror=function(){URL.revokeObjectURL(u);brut()};img.src=u;});}
   document.getElementById('f').addEventListener('submit',function(e){
     e.preventDefault();
     var fc=document.getElementById('fCarte').files,ff=document.getElementById('fFact').files,btn=this.querySelector('button[type=submit]'),msg=document.getElementById('okMsg'),ai=document.getElementById('aiTxt');
     if(!fc.length&&!ff.length){ai.textContent='Ajoutez au moins une photo : votre carte de visite et/ou votre facture.';return;}
     btn.disabled=true;btn.textContent='Envoi en cours…';
-    var jobs=[fc.length?lireFichier(fc[0]):Promise.resolve(null)].concat(Array.prototype.slice.call(ff,0,4).map(lireFichier));
+    var jobs=[fc.length?lireFichier(fc[0]):Promise.resolve(null)].concat(Array.prototype.slice.call(ff,0,6).map(lireFichier));
     Promise.all(jobs).then(function(r){
       return fetch(POST_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({site:'lcgefrance',carte:r[0],factures:r.slice(1)})});
     }).then(function(){msg.hidden=false;btn.textContent='Envoyé ✓';}).catch(function(err){btn.disabled=false;btn.textContent='Envoyer et recevoir mon étude';ai.textContent='L\'envoi n\'a pas abouti ('+(err&&err.message||'réseau')+'). Réessayez ou appelez-nous : Moulay 07 69 95 89 34 · Fahd 07 89 98 40 62.';});
